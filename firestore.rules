@@ -1,0 +1,261 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    // Primitive global authentication & ID validation helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isVerifiedUser() {
+      return isSignedIn();
+    }
+    
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    
+    function incoming() {
+      return request.resource.data;
+    }
+    
+    function existing() {
+      return resource.data;
+    }
+    
+    // 1. CLASSIFIED TRADE LISTINGS
+    match /listings/{listingId} {
+      allow read: if true; // Public trade feed
+      
+      allow create: if (isVerifiedUser()
+        && isValidId(listingId)
+        && isValidListing(incoming())
+        && incoming().sellerId == request.auth.uid)
+        || (request.auth == null
+        && isValidId(listingId)
+        && isValidListing(incoming())
+        && incoming().sellerId.matches('^local_.*'));
+        
+      allow update: if (isVerifiedUser()
+        && isValidListing(incoming())
+        && existing().sellerId == request.auth.uid
+        && incoming().sellerId == request.auth.uid
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'title', 'titleUr', 'category', 'type', 'price', 'priceUr', 
+            'location', 'locationUr', 'description', 'descriptionUr', 
+            'condition', 'imageGradient', 'imageEmoji', 'isShopProduct', 
+            'shopName', 'shopNameUr', 'views', 'sellerName', 'sellerPhone', 'sellerEmail', 'offersDelivery'
+          ])
+        )) || (
+          // Public view count increment
+          incoming().diff(existing()).affectedKeys().hasOnly(['views'])
+        ) || (
+          request.auth == null
+          && isValidListing(incoming())
+          && existing().sellerId.matches('^local_.*')
+          && incoming().sellerId == existing().sellerId
+          && (
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'title', 'titleUr', 'category', 'type', 'price', 'priceUr', 
+              'location', 'locationUr', 'description', 'descriptionUr', 
+              'condition', 'imageGradient', 'imageEmoji', 'isShopProduct', 
+              'shopName', 'shopNameUr', 'views', 'sellerName', 'sellerPhone', 'sellerEmail', 'offersDelivery'
+            ])
+          )
+        );
+        
+      allow delete: if true;
+    }
+    
+    function isValidListing(data) {
+      return data.keys().hasAll(['id', 'title', 'category', 'type', 'price', 'location', 'sellerName', 'sellerPhone', 'sellerId', 'createdAt', 'views'])
+        && data.id is string
+        && data.title is string && data.title.size() <= 200
+        && data.category is string
+        && (data.type == 'sell' || data.type == 'rent')
+        && data.price is number
+        && data.location is string
+        && data.sellerName is string
+        && data.sellerPhone is string
+        && data.sellerId is string
+        && data.views is number;
+    }
+    
+    // 2. VIRTUAL VILLAGE SHOPS
+    match /shops/{shopId} {
+      allow read: if true; // Public shop directory
+      
+      allow create: if (isVerifiedUser()
+        && isValidId(shopId)
+        && isValidShop(incoming())
+        && incoming().ownerId == request.auth.uid)
+        || (request.auth == null
+        && isValidId(shopId)
+        && isValidShop(incoming())
+        && incoming().ownerId.matches('^local_.*'));
+        
+      allow update: if (isVerifiedUser()
+        && isValidShop(incoming())
+        && existing().ownerId == request.auth.uid
+        && incoming().ownerId == request.auth.uid
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'name', 'nameUr', 'ownerName', 'category', 'description', 
+            'descriptionUr', 'logoGradient', 'logoEmoji', 'phone'
+          ])
+        )) || (
+          request.auth == null
+          && isValidShop(incoming())
+          && existing().ownerId.matches('^local_.*')
+          && incoming().ownerId == existing().ownerId
+          && (
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'name', 'nameUr', 'ownerName', 'category', 'description', 
+              'descriptionUr', 'logoGradient', 'logoEmoji', 'phone'
+            ])
+          )
+        );
+        
+      allow delete: if true;
+        
+      // Reviews nested subcollection for trust ratings
+      match /reviews/{reviewId} {
+        allow read: if true;
+        
+        allow create: if (isVerifiedUser()
+          && isValidId(reviewId)
+          && isValidReview(incoming())
+          && incoming().authorId == request.auth.uid
+          && incoming().shopId == shopId)
+          || (request.auth == null
+          && isValidId(reviewId)
+          && isValidReview(incoming())
+          && incoming().authorId.matches('^local_.*')
+          && incoming().shopId == shopId);
+          
+        allow delete: if (isSignedIn()
+          && (existing().authorId == request.auth.uid || request.auth.token.email == 'msudaisdurrani87@gmail.com'))
+          || (request.auth == null && existing().authorId.matches('^local_.*'));
+      }
+    }
+    
+    function isValidReview(data) {
+      return data.keys().hasAll(['id', 'shopId', 'authorId', 'authorName', 'rating', 'comment', 'createdAt'])
+        && data.id is string
+        && data.shopId is string
+        && data.authorId is string
+        && data.authorName is string
+        && data.rating is number && data.rating >= 1 && data.rating <= 5
+        && data.comment is string && data.comment.size() <= 600
+        && data.createdAt is string;
+    }
+    
+    function isValidShop(data) {
+      return data.keys().hasAll(['id', 'name', 'ownerName', 'ownerId', 'category', 'logoGradient', 'logoEmoji', 'phone', 'createdAt'])
+        && data.id is string
+        && data.name is string && data.name.size() <= 200
+        && data.ownerName is string
+        && data.ownerId is string
+        && data.category is string
+        && data.phone is string;
+    }
+    
+    // 3. SECURE TRADE NEGOTIATIONS (CHATS)
+    match /chats/{chatId} {
+      allow get: if (isSignedIn()
+        && (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid))
+        || (request.auth == null
+        && (resource.data.buyerId.matches('^local_.*') || resource.data.sellerId.matches('^local_.*')));
+        
+      allow list: if (isSignedIn()
+        && (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid))
+        || (request.auth == null
+        && (resource.data.buyerId.matches('^local_.*') || resource.data.sellerId.matches('^local_.*')));
+        
+      allow create: if (isVerifiedUser()
+        && isValidId(chatId)
+        && isValidChatSession(incoming())
+        && (incoming().buyerId == request.auth.uid || incoming().sellerId == request.auth.uid))
+        || (request.auth == null
+        && isValidId(chatId)
+        && isValidChatSession(incoming())
+        && (incoming().buyerId.matches('^local_.*') || incoming().sellerId.matches('^local_.*')));
+        
+      allow update: if (isVerifiedUser()
+        && (existing().buyerId == request.auth.uid || existing().sellerId == request.auth.uid)
+        && (incoming().buyerId == existing().buyerId)
+        && (incoming().sellerId == existing().sellerId))
+        || (request.auth == null
+        && (existing().buyerId.matches('^local_.*') || existing().sellerId.matches('^local_.*'))
+        && (incoming().buyerId == existing().buyerId)
+        && (incoming().sellerId == existing().sellerId));
+        
+      allow delete: if false; // Chats cannot be deleted or pruned via front-end client
+      
+      // Live Messages Stream Subcollection
+      match /messages/{messageId} {
+        allow read, get, list: if (isSignedIn()
+          && (get(/databases/$(database)/documents/chats/$(chatId)).data.buyerId == request.auth.uid 
+              || get(/databases/$(database)/documents/chats/$(chatId)).data.sellerId == request.auth.uid))
+          || (request.auth == null
+          && (get(/databases/$(database)/documents/chats/$(chatId)).data.buyerId.matches('^local_.*') 
+              || get(/databases/$(database)/documents/chats/$(chatId)).data.sellerId.matches('^local_.*')));
+              
+        allow create: if (isVerifiedUser()
+          && isValidId(messageId)
+          && isValidMessage(incoming())
+          && (get(/databases/$(database)/documents/chats/$(chatId)).data.buyerId == request.auth.uid 
+              || get(/databases/$(database)/documents/chats/$(chatId)).data.sellerId == request.auth.uid)
+          && incoming().senderId == request.auth.uid)
+          || (request.auth == null
+          && isValidId(messageId)
+          && isValidMessage(incoming())
+          && (get(/databases/$(database)/documents/chats/$(chatId)).data.buyerId.matches('^local_.*') 
+              || get(/databases/$(database)/documents/chats/$(chatId)).data.sellerId.matches('^local_.*'))
+          && incoming().senderId.matches('^local_.*'));
+          
+        allow update, delete: if false; // Individual messages are tamper-proof and immutable
+      }
+    }
+    
+    function isValidChatSession(data) {
+      return data.keys().hasAll(['id', 'listingId', 'listingTitle', 'buyerId', 'sellerId', 'otherParticipantId', 'otherParticipantName'])
+        && data.id is string
+        && data.listingId is string
+        && data.buyerId is string
+        && data.sellerId is string;
+    }
+    
+    function isValidMessage(data) {
+      return data.keys().hasAll(['id', 'senderId', 'senderName', 'text', 'timestamp'])
+        && data.id is string
+        && data.senderId is string
+        && data.text is string && data.text.size() <= 1000;
+    }
+    
+    // 4. PRIVATE USER PROFILE AND SETTINGS
+    match /users/{userId}/profile/info {
+      allow read, get: if (isSignedIn() && userId == request.auth.uid)
+        || (request.auth == null && userId.matches('^local_.*'));
+      
+      allow create, update: if (isSignedIn() && userId == request.auth.uid)
+        || (request.auth == null && userId.matches('^local_.*'));
+        
+      allow delete: if false;
+    }
+    
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['name', 'phone', 'email', 'avatarGradient', 'avatarEmoji'])
+        && data.name is string && data.name.size() <= 100
+        && data.phone is string
+        && data.email is string;
+    }
+    
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "short_name": "Sawaldher Trade",
+  "name": "Republic of Sawaldher Trade",
+  "description": "An interactive, visually stunning bilingual (English/Urdu) local classifieds and trade platform for the Republic of Sawaldher. Users can buy, sell, rent, and chat in real-time.",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#f4f1ea",
+  "theme_color": "#5a6a5a",
+  "display": "standalone",
+  "orientation": "portrait"
+}

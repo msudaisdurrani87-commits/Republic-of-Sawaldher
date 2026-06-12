@@ -1,0 +1,6 @@
+{
+  "name": "Republic of Sawaldher Trade",
+  "description": "An interactive, visually stunning bilingual (English/Urdu) local classifieds and trade platform for the Republic of Sawaldher. Users can buy, sell, rent, and chat in real-time.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

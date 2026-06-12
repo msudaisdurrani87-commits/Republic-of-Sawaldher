@@ -1,0 +1,146 @@
+{
+  "entities": {
+    "Listing": {
+      "title": "Listing",
+      "description": "A trade classified listing in Republic of Sawaldher",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "titleUr": { "type": "string" },
+        "category": { "type": "string" },
+        "type": { "type": "string", "enum": ["sell", "rent"] },
+        "price": { "type": "number" },
+        "priceUr": { "type": "string" },
+        "location": { "type": "string" },
+        "locationUr": { "type": "string" },
+        "description": { "type": "string" },
+        "descriptionUr": { "type": "string" },
+        "condition": { "type": "string", "enum": ["new", "used"] },
+        "imageGradient": { "type": "string" },
+        "imageEmoji": { "type": "string" },
+        "sellerName": { "type": "string" },
+        "sellerPhone": { "type": "string" },
+        "sellerEmail": { "type": "string" },
+        "sellerId": { "type": "string" },
+        "isShopProduct": { "type": "boolean" },
+        "shopName": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "views": { "type": "number" }
+      },
+      "required": ["id", "title", "category", "type", "price", "location", "sellerName", "sellerPhone", "sellerId", "createdAt", "views"]
+    },
+    "Shop": {
+      "title": "Shop",
+      "description": "A virtual village shop in Sawaldher bazaar",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "nameUr": { "type": "string" },
+        "ownerName": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "descriptionUr": { "type": "string" },
+        "logoGradient": { "type": "string" },
+        "logoEmoji": { "type": "string" },
+        "phone": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "ownerName", "ownerId", "category", "logoGradient", "logoEmoji", "phone", "createdAt"]
+    },
+    "ChatSession": {
+      "title": "ChatSession",
+      "description": "Conversation reference between active trade buyer and seller",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "listingId": { "type": "string" },
+        "listingTitle": { "type": "string" },
+        "listingTitleUr": { "type": "string" },
+        "buyerId": { "type": "string" },
+        "sellerId": { "type": "string" },
+        "otherParticipantId": { "type": "string" },
+        "otherParticipantName": { "type": "string" }
+      },
+      "required": ["id", "listingId", "listingTitle", "buyerId", "sellerId", "otherParticipantId", "otherParticipantName"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A secure, client-encrypted realtime chat message",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "senderId", "senderName", "text", "timestamp"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with notifications and contact privacy choices",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "avatarGradient": { "type": "string" },
+        "avatarEmoji": { "type": "string" },
+        "notificationsOffer": { "type": "boolean" },
+        "notificationsChat": { "type": "boolean" },
+        "notificationsEmail": { "type": "boolean" },
+        "privacyShowPhone": { "type": "boolean" },
+        "privacyPublicProfile": { "type": "boolean" },
+        "favorites": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["name", "phone", "email", "avatarGradient", "avatarEmoji"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "A user-submitted rating and trust review for a virtual shop",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "shopId": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "shopId", "authorId", "authorName", "rating", "comment", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/listings/{listingId}": {
+      "schema": { "$ref": "#/entities/Listing" },
+      "description": "Collection of all items currently listed for trade"
+    },
+    "/shops/{shopId}": {
+      "schema": { "$ref": "#/entities/Shop" },
+      "description": "Virtual shops launched under the Republic of Sawaldher directory"
+    },
+    "/shops/{shopId}/reviews/{reviewId}": {
+      "schema": { "$ref": "#/entities/Review" },
+      "description": "Trust ratings and review comments made by trade buyers/visitors"
+    },
+    "/chats/{chatId}": {
+      "schema": { "$ref": "#/entities/ChatSession" },
+      "description": "Active trade negotiation chats between buyers and sellers"
+    },
+    "/chats/{chatId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/Message" },
+      "description": "A subcollection stream of all secure messages within a session"
+    },
+    "/users/{userId}/profile/info": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Isolated profile information for validated users"
+    }
+  }
+}
